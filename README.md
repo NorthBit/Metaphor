@@ -14,6 +14,7 @@ The PoC includes lookup tables for Nexus 5 Build LRX22C with Android 5.0.1. Serv
 
 The exploit generator is written in Python and used by the PHP code.
 
+```sh
 usage: metaphor.py [-h] [-c CONFIG] -o OUTPUT {leak,rce,suicide} ...
 
 positional arguments:
@@ -24,6 +25,7 @@ optional arguments:
   -c CONFIG, --config CONFIG
                         Override exploit configuration
   -o OUTPUT, --output OUTPUT
+```
 
 Credits:
 To the NorthBit team
