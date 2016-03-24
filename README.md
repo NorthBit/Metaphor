@@ -5,11 +5,14 @@ By Hanan Be'er from NorthBit Ltd.
 Link to whitepaper:
 https://raw.githubusercontent.com/NorthBit/Public/master/NorthBit-Metaphor.pdf
 
-Metaphor's source code is now released!
-The source include a PoC code that generates MP4 exploits in real-time and bypassing ASLR.
+Twitter:
+https://twitter.com/High_Byte
 
-Server-side includes simple PHP scripts that run the exploit generator - I'm using XAMPP to serve gzipped MP4 files.
-The exploit generator is written in Python.
+Metaphor's source code is now released!
+The source include a PoC that generates MP4 exploits in real-time and bypassing ASLR.
+The PoC includes lookup tables for Nexus 5 Build LRX22C with Android 5.0.1. Server-side of the PoC include simple PHP scripts that run the exploit generator - I'm using XAMPP to serve gzipped MP4 files. The attack page is index.php.
+
+The exploit generator is written in Python and used by the PHP code.
 
 usage: metaphor.py [-h] [-c CONFIG] -o OUTPUT {leak,rce,suicide} ...
 
@@ -21,3 +24,7 @@ optional arguments:
   -c CONFIG, --config CONFIG
                         Override exploit configuration
   -o OUTPUT, --output OUTPUT
+
+Credits:
+To the NorthBit team
+E.P. - My shining paladin, for assisting in boosting this project to achieve all the goals.
